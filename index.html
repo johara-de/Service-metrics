@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Service metrics · noissue dashboards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #17375E; --blue: #2F5597; --sky: #8EA9DB; --mist: #D6E0F2; --wash: #F4F7FC;
+    --ink: #1f2a37; --muted: #5c6878; --line: #E3E8F0;
+    --good: #1E6B4F; --bad: #A3341F;
+    --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #fff; color: var(--ink); font: 400 15px/1.5 var(--font); font-variant-numeric: tabular-nums; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 24px 64px; }
+
+  .top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; padding-bottom: 20px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 30px; line-height: 1.15; font-weight: 600; letter-spacing: -.02em; margin: 0 0 6px; }
+  .source { color: var(--muted); font-size: 13px; margin: 0; }
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .controls label { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  select { font: 500 14px var(--font); color: var(--ink); padding: 7px 30px 7px 10px; border: 1px solid #C8D1DE; border-radius: 6px; background: #fff; }
+  .seg { display: inline-flex; border: 1px solid #C8D1DE; border-radius: 6px; overflow: hidden; }
+  .seg button { font: 500 14px var(--font); border: 0; background: #fff; color: var(--ink); padding: 7px 14px; cursor: pointer; }
+  .seg button + button { border-left: 1px solid #C8D1DE; }
+  .seg button[aria-pressed=true] { background: var(--navy); color: #fff; }
+  select:focus-visible, .seg button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+  section { margin-top: 36px; }
+  h2 { font-size: 18px; font-weight: 600; margin: 0 0 4px; letter-spacing: -.01em; }
+  .note { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+
+  /* Scorecard: the one bold element */
+  .score { border-top: 2px solid var(--navy); }
+  .score-group { display: grid; grid-template-columns: 210px 120px minmax(180px, 1fr) 110px 150px; align-items: center; column-gap: 20px; }
+  .score-group .gh { grid-column: 1 / -1; padding: 16px 0 6px; font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; }
+  .score-row { display: contents; }
+  .score-row > * { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .m-label { font-weight: 500; }
+  .m-ty { font-size: 28px; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; color: var(--navy); }
+  .m-delta { font-weight: 600; font-size: 14px; }
+  .m-delta small, .m-ytd small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+  .m-ytd { font-size: 14px; }
+  .good { color: var(--good); } .bad { color: var(--bad); } .flat { color: var(--muted); }
+  .dumb svg { display: block; width: 100%; height: 34px; overflow: visible; }
+  .legend { display: flex; gap: 18px; font-size: 12px; color: var(--muted); align-items: center; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .chart { min-height: 240px; }
+  .chart svg { display: block; width: 100%; overflow: visible; }
+  .axis text { fill: var(--muted); font: 12px var(--font); }
+  .axis path, .axis line { stroke: #C8D1DE; }
+  .grid line { stroke: var(--line); }
+  .grid path { display: none; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 10px 12px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { font-weight: 600; color: var(--muted); font-size: 13px; border-bottom: 2px solid var(--navy); }
+  td small { display: block; font-size: 12px; }
+  .table-wrap { overflow-x: auto; }
+
+  .checks { background: var(--wash); border-left: 3px solid var(--blue); padding: 14px 18px; border-radius: 0 6px 6px 0; }
+  .checks ul { margin: 6px 0 0; padding-left: 18px; }
+  .checks li { margin: 4px 0; font-size: 14px; }
+  .checks li span { color: var(--muted); font-size: 12px; }
+
+  .status { padding: 48px 0; color: var(--muted); }
+  .status.error { color: var(--bad); }
+  .tip { position: fixed; pointer-events: none; background: var(--ink); color: #fff; font-size: 12px; padding: 6px 9px; border-radius: 4px; opacity: 0; transition: opacity .1s; z-index: 60; }
+
+  @media (max-width: 900px) {
+    .score-group { grid-template-columns: 1fr auto; row-gap: 0; }
+    .score-row > * { border-bottom: 0; padding: 4px 0; }
+    .m-label { grid-column: 1; padding-top: 14px; }
+    .m-ty { grid-column: 2; text-align: right; padding-top: 14px; font-size: 24px; }
+    .dumb { grid-column: 1 / -1; }
+    .m-delta { grid-column: 1; }
+    .m-ytd { grid-column: 2; text-align: right; border-bottom: 1px solid var(--line) !important; padding-bottom: 14px; }
+    .m-delta { border-bottom: 1px solid var(--line) !important; padding-bottom: 14px; }
+    .charts { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="top">
+    <div>
+      <h1>Service metrics</h1>
+      <p class="source" id="source">Loading from Service Metrics_Summary Table…</p>
+    </div>
+    <div class="controls" hidden id="controls">
+      <label>Month <select id="month"></select></label>
+      <div class="seg" role="group" aria-label="Channel" id="channel"></div>
+    </div>
+  </div>
+
+  <div id="status" class="status">Reading the latest numbers from Google Sheets…</div>
+
+  <div id="content" hidden>
+    <section>
+      <div class="score" id="score"></div>
+    </section>
+
+    <section>
+      <h2>On-time trend</h2>
+      <p class="note">Every month in the Overall tab, with the same month last year dashed.</p>
+      <div class="charts">
+        <div><h2 style="font-size:15px">Fulfilled on time</h2><div class="chart" id="trend-fulfilled"></div></div>
+        <div><h2 style="font-size:15px">Delivered on time</h2><div class="chart" id="trend-delivered"></div></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Concession rates this year</h2>
+      <p class="note">Lower is better. Overall includes every concession type.</p>
+      <div class="chart" id="conc-chart"></div>
+    </section>
+
+    <section>
+      <h2 id="compare-title">All channels</h2>
+      <p class="note">This month, with the change against the same month last year.</p>
+      <div class="table-wrap"><table id="compare"></table></div>
+    </section>
+
+    <section id="checks-section" hidden>
+      <div class="checks">
+        <h2>Worth fixing in the Sheet</h2>
+        <ul id="checks"></ul>
+      </div>
+    </section>
+  </div>
+</main>
+<div class="tip" id="tip"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="/shared/service-metrics-data.js"></script>
+<script src="/service-metrics/app.js"></script>
+<script src="/shared/nav.js"></script>
+</body>
+</html>
